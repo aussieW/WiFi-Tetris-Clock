@@ -59,6 +59,10 @@ bool twelveHourFormat = true;
 // but the most significant number will only be replaced every 10 minutes.
 // When true, all digits will be replaced every minute.
 bool forceRefresh = true;
+
+// Rotate the display from landscape (default) to portrait mode.
+// When true the display will be rotated to portrait mocde.
+bool rotateDisplay = true:
 // -----------------------------
 
 // ----- Wiring -------
@@ -192,6 +196,7 @@ void setup() {
 
   // Intialise display library
   display.begin(16);
+  display.setRotate(rotateDisplay);
   display.clearDisplay();
 
   // Setup ticker for driving display
