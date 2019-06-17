@@ -195,8 +195,9 @@ void setup() {
   // as it will crash!
 
   // Intialise display library
-  display.begin(16);
+  display.begin(32);
   display.setRotate(rotateDisplay);
+  display.setBrightness(125);
   display.clearDisplay();
 
   // Setup ticker for driving display
