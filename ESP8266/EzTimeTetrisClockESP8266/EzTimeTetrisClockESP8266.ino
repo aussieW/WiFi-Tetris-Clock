@@ -44,12 +44,13 @@
 // ---- Stuff to configure ----
 
 // Initialize Wifi connection to the router
-char ssid[] = "SSID";     // your network SSID (name)
-char password[] = "password"; // your network key
+char ssid[] = "";     // your network SSID (name)
+char password[] = ""; // your network key
 
 // Set a timezone using the following list
 // https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
-#define MYTIMEZONE "Europe/Dublin"
+#define MYTIMEZONE "Australia/Sydney"
+Timezone myTZ;
 
 // Sets whether the clock should be 12 hour format or not.
 bool twelveHourFormat = true;
@@ -58,11 +59,7 @@ bool twelveHourFormat = true;
 // e.g. the digit representing the least significant minute will be replaced every minute,
 // but the most significant number will only be replaced every 10 minutes.
 // When true, all digits will be replaced every minute.
-bool forceRefresh = true;
-
-// Rotate the display from landscape (default) to portrait mode.
-// When true the display will be rotated to portrait mocde.
-bool rotateDisplay = true:
+bool forceRefresh = false;
 // -----------------------------
 
 // ----- Wiring -------
@@ -75,36 +72,45 @@ bool rotateDisplay = true:
 #define P_E 0
 // ---------------------
 
+// ----- Matrix Parameters -----
+#define matrixWidth 64
+#define matrixHeight 64
+#define matrixRotate true
+#define matrixScale 2
+
+#define scaledHeight matrixWidth / matrixScale
+// -----------------------------
+
 Ticker display_ticker;
 Ticker timer_ticker;
+Ticker time_ticker;
 
-// PxMATRIX display(32,16,P_LAT, P_OE,P_A,P_B,P_C);
-// PxMATRIX display(64,32,P_LAT, P_OE,P_A,P_B,P_C,P_D);
-PxMATRIX display(64, 32, P_LAT, P_OE, P_A, P_B, P_C, P_D, P_E);
+// PxMATRIX display(matrixWidth, matrixHeight, P_LAT, P_OE,P_A,P_B,P_C);
+//PxMATRIX display(matrixWidth,matrixHeight, P_LAT, P_OE,P_A,P_B,P_C,P_D);
+PxMATRIX display(matrixWidth, matrixHeight, P_LAT, P_OE, P_A, P_B, P_C, P_D, P_E);
 
 TetrisMatrixDraw tetris(display); // Main clock
 TetrisMatrixDraw tetris2(display); // The "M" of AM/PM
 TetrisMatrixDraw tetris3(display); // The "P" or "A" of AM/PM
 
-Timezone myTZ;
-unsigned long oneSecondLoopDue = 0;
+//unsigned long oneSecondLoopDue = 0;
 
 bool showColon = true;
 bool finishedAnimating = false;
 bool displayIntro = true;
-bool animateFlag = false;
+//bool animateFlag = false;
 
 String lastDisplayedTime = "";
 String lastDisplayedAmPm = "";
 
 // This method is needed for driving the display
 void display_updater() {
-  display.display(70);
+  display.display(60);
 }
 
-void setAnimateFlag() {
-  animateFlag = true;
-}
+//void setAnimateFlag() {
+//  animateFlag = true;
+//}
 
 // This method is for controlling the tetris library draw calls
 void animationHandler()
@@ -123,18 +129,18 @@ void animationHandler()
         bool tetris2Done = false;
         bool tetris3Done = false;
 
-        tetris1Done = tetris.drawNumbers(-6, 26, showColon);
-        tetris2Done = tetris2.drawText(56, 25);
+        tetris1Done = tetris.drawNumbers(-6, scaledHeight, showColon);
+        tetris2Done = tetris2.drawText(56, matrixHeight - 1);
 
         // Only draw the top letter once the bottom letter is finished.
         if (tetris2Done) {
-          tetris3Done = tetris3.drawText(56, 15);
+          tetris3Done = tetris3.drawText(56, matrixHeight - 11);
         }
 
         finishedAnimating = tetris1Done && tetris2Done && tetris3Done;
 
       } else {
-        finishedAnimating = tetris.drawNumbers(2, 26, showColon);
+        finishedAnimating = tetris.drawNumbers(2, scaledHeight, showColon);
       }
     }
 
@@ -144,29 +150,29 @@ void animationHandler()
 void drawIntro(int x = 0, int y = 0)
 {
   tetris.drawChar("W", x, y, tetris.tetrisCYAN);
-  tetris.drawChar("r", x + 5, y, tetris.tetrisMAGENTA);
-  tetris.drawChar("i", x + 11, y, tetris.tetrisYELLOW);
-  tetris.drawChar("t", x + 17, y, tetris.tetrisGREEN);
-  tetris.drawChar("t", x + 22, y, tetris.tetrisBLUE);
-  tetris.drawChar("e", x + 27, y, tetris.tetrisRED);
-  tetris.drawChar("n", x + 32, y, tetris.tetrisWHITE);
-  tetris.drawChar(" ", x + 37, y, tetris.tetrisMAGENTA);
-  tetris.drawChar("b", x + 42, y, tetris.tetrisYELLOW);
-  tetris.drawChar("y", x + 47, y, tetris.tetrisGREEN);
+  tetris.drawChar("r", x += 5, y, tetris.tetrisMAGENTA);
+  tetris.drawChar("i", x += 4, y, tetris.tetrisYELLOW);
+  tetris.drawChar("t", x += 4, y, tetris.tetrisGREEN);
+  tetris.drawChar("t", x += 5, y, tetris.tetrisBLUE);
+  tetris.drawChar("e", x += 5, y, tetris.tetrisRED);
+  tetris.drawChar("n", x += 5, y, tetris.tetrisWHITE);
+  tetris.drawChar(" ", x += 5, y, tetris.tetrisMAGENTA);
+  tetris.drawChar("b", x += 5, y, tetris.tetrisYELLOW);
+  tetris.drawChar("y", x += 5, y, tetris.tetrisGREEN);
 }
 
 void drawConnecting(int x = 0, int y = 0)
 {
   tetris.drawChar("C", x, y, tetris.tetrisCYAN);
-  tetris.drawChar("o", x + 5, y, tetris.tetrisMAGENTA);
-  tetris.drawChar("n", x + 11, y, tetris.tetrisYELLOW);
-  tetris.drawChar("n", x + 17, y, tetris.tetrisGREEN);
-  tetris.drawChar("e", x + 22, y, tetris.tetrisBLUE);
-  tetris.drawChar("c", x + 27, y, tetris.tetrisRED);
-  tetris.drawChar("t", x + 32, y, tetris.tetrisWHITE);
-  tetris.drawChar("i", x + 37, y, tetris.tetrisMAGENTA);
-  tetris.drawChar("n", x + 42, y, tetris.tetrisYELLOW);
-  tetris.drawChar("g", x + 47, y, tetris.tetrisGREEN);
+  tetris.drawChar("o", x += 5, y, tetris.tetrisMAGENTA);
+  tetris.drawChar("n", x += 5, y, tetris.tetrisYELLOW);
+  tetris.drawChar("n", x += 5, y, tetris.tetrisGREEN);
+  tetris.drawChar("e", x += 5, y, tetris.tetrisBLUE);
+  tetris.drawChar("c", x += 5, y, tetris.tetrisRED);
+  tetris.drawChar("t", x += 5, y, tetris.tetrisWHITE);
+  tetris.drawChar("i", x += 4, y, tetris.tetrisMAGENTA);
+  tetris.drawChar("n", x += 4, y, tetris.tetrisYELLOW);
+  tetris.drawChar("g", x += 5, y, tetris.tetrisGREEN);
 }
 
 void setup() {
@@ -193,23 +199,25 @@ void setup() {
 
   // Do not set up display before WiFi connection
   // as it will crash!
+  delay(5000);
 
   // Intialise display library
-  display.begin(32);
-  display.setRotate(rotateDisplay);
-  display.setBrightness(125);
+  display.begin(32);  //16
+  display.setRotate(matrixRotate);
+  display.setBrightness(150);  // 0 - 255
+  display.setFastUpdate(true);  // true - false
   display.clearDisplay();
 
   // Setup ticker for driving display
-  display_ticker.attach(0.002, display_updater);
+  display_ticker.attach(0.003, display_updater);
   yield();
   display.clearDisplay();
 
   // "connecting"
-  drawConnecting(5, 10);
+  drawConnecting(6, 10);
 
   // Setup EZ Time
-  setDebug(INFO);
+  //setDebug(DEBUG);
   waitForSync();
 
   Serial.println();
@@ -226,7 +234,7 @@ void setup() {
 
   // Start the Animation Timer
   tetris.setText("B. LOUGH");
-  timer_ticker.attach(0.1, animationHandler);
+  timer_ticker.attach(0.06, animationHandler);
 
   // Wait for the animation to finish
   while (!finishedAnimating)
@@ -238,6 +246,9 @@ void setup() {
   finishedAnimating = false;
   displayIntro = false;
   tetris.scale = 2;
+
+  //Check every second for time changes and flash cursor.
+  time_ticker.attach(1, tickTock);
 }
 
 void setMatrixTime() {
@@ -285,19 +296,22 @@ void setMatrixTime() {
 }
 
 
-void loop() {
-  unsigned long now = millis();
-//  if(false && animateFlag){
-//    animateFlag = false;
-//    animationHandler();
-//  }
+void loop() {  
+}
 
- // animationHandler();
-  if (now > oneSecondLoopDue) {
-    // We can call this often, but it will only
-    // update when it needs to
-    setMatrixTime();
-    showColon = !showColon;
-    oneSecondLoopDue = now + 10000;
+void tickTock() {
+  setMatrixTime();
+  flashCursor();
+}
+
+void flashCursor() {
+  if (showColon) {
+    //tetris.drawColon(2,32, tetris.tetrisWHITE);  //24 Hour format
+    tetris.drawColon(-6, scaledHeight, tetris.tetrisWHITE);   //12 Hour format
   }
+  else {
+    //tetris.drawColon(2,32, tetris.tetrisBLACK);  //24 Hour format
+    tetris.drawColon(-6, scaledHeight, tetris.tetrisBLACK);   //12 Hour format
+  }
+  showColon = !showColon;
 }
