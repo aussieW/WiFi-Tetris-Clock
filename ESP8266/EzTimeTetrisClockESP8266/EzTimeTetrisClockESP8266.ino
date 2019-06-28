@@ -17,6 +17,7 @@
 
 #include <Ticker.h>
 #include <ESP8266WiFi.h>
+#include<PubSubClient.h>
 
 // ----------------------------
 // Additional Libraries - each one of these will need to be installed.
@@ -44,8 +45,17 @@
 // ---- Stuff to configure ----
 
 // Initialize Wifi connection to the router
-char ssid[] = "";     // your network SSID (name)
-char password[] = ""; // your network key
+const char* ssid = "radar";     // your network SSID (name)
+const char* password = "0613311164659195"; // your network key
+
+// Initialize MQTT
+const char* mqttServer = "192.168.1.49";
+WiFiClient wifiClient;
+PubSubClient mqttClient(wifiClient);
+
+const char* listenTopic = "study/clock/#";
+const char* brightnessTopic = "study/clock/brightness";
+
 
 // Set a timezone using the following list
 // https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
@@ -93,12 +103,9 @@ TetrisMatrixDraw tetris(display); // Main clock
 TetrisMatrixDraw tetris2(display); // The "M" of AM/PM
 TetrisMatrixDraw tetris3(display); // The "P" or "A" of AM/PM
 
-//unsigned long oneSecondLoopDue = 0;
-
 bool showColon = true;
 bool finishedAnimating = false;
 bool displayIntro = true;
-//bool animateFlag = false;
 
 String lastDisplayedTime = "";
 String lastDisplayedAmPm = "";
@@ -107,10 +114,6 @@ String lastDisplayedAmPm = "";
 void display_updater() {
   display.display(60);
 }
-
-//void setAnimateFlag() {
-//  animateFlag = true;
-//}
 
 // This method is for controlling the tetris library draw calls
 void animationHandler()
@@ -197,6 +200,9 @@ void setup() {
   Serial.print("IP address: ");
   Serial.println(WiFi.localIP());
 
+  mqttClient.setServer(mqttServer, 1883);
+  mqttClient.setCallback(callback);
+
   // Do not set up display before WiFi connection
   // as it will crash!
   delay(5000);
@@ -204,8 +210,8 @@ void setup() {
   // Intialise display library
   display.begin(32);  //16
   display.setRotate(matrixRotate);
-  display.setBrightness(150);  // 0 - 255
-  display.setFastUpdate(true);  // true - false
+  display.setBrightness(25);  // 0 - 255
+  display.setFastUpdate(false);  // true - false
   display.clearDisplay();
 
   // Setup ticker for driving display
@@ -247,8 +253,11 @@ void setup() {
   displayIntro = false;
   tetris.scale = 2;
 
-  //Check every second for time changes and flash cursor.
-  time_ticker.attach(1, tickTock);
+//  //Check every second for time changes and flash cursor.
+//  time_ticker.attach(1, tickTock);
+
+  //Force a call to setMatrixTime to display the initial time.
+  setMatrixTime();
 }
 
 void setMatrixTime() {
@@ -282,29 +291,24 @@ void setMatrixTime() {
     // Get time in format "01:15" or "22:15"(24 hour with leading 0)
     timeString = myTZ.dateTime("H:i");
   }
-
-  // Only update Time if its different
-  if (lastDisplayedTime != timeString) {
-    Serial.println(timeString);
-    lastDisplayedTime = timeString;
-    tetris.setTime(timeString, forceRefresh);
-
-    // Must set this to false so animation knows
-    // to start again
-    finishedAnimating = false;
-  }
+  tetris.setTime(timeString, forceRefresh);
+  finishedAnimating = false;
 }
-
 
 void loop() {  
-}
+  events();
+  if (minuteChanged()) setMatrixTime();
+  if (secondChanged()) flashCursor();
 
-void tickTock() {
-  setMatrixTime();
-  flashCursor();
+  if (!mqttClient.connected()) {
+    Serial.println("Reconnecting to MQTT Server");
+    reconnect();
+  }
+  mqttClient.loop();
 }
 
 void flashCursor() {
+  now();  //Required by ezTime library to internally track time changes. https://github.com/ropg/ezTime/issues/53
   if (showColon) {
     //tetris.drawColon(2,32, tetris.tetrisWHITE);  //24 Hour format
     tetris.drawColon(-6, scaledHeight, tetris.tetrisWHITE);   //12 Hour format
@@ -314,4 +318,48 @@ void flashCursor() {
     tetris.drawColon(-6, scaledHeight, tetris.tetrisBLACK);   //12 Hour format
   }
   showColon = !showColon;
+}
+
+void callback(char* topic, byte* payload, unsigned int length) {
+  Serial.print("Message received [");
+  Serial.print(topic);
+  Serial.println("]");
+  String payloadStr;
+  for (int i=0;i<length;i++) {
+    payloadStr += (char)payload[i];
+  }
+
+  String topicStr = topic;
+  
+  if (topicStr == brightnessTopic) {
+    
+    // ---- Convert payload to uint8_t for the setBrightness() function -----
+    // http://github.com/knolleary/pubsubclient/issues/105#issuecomment-168538000
+    payload[length] = '\0';
+    String s = String((char*)payload);
+    uint8_t brightness = s.toInt();
+    // ----------------------------
+   
+    Serial.print("Setting display brightness to ");
+    Serial.println(brightness);
+    if (brightness > 254) brightness = 254;
+    display.setBrightness(brightness);
+  }
+}
+
+void reconnect() {
+  // Loop until a connection is made
+  while (!mqttClient.connected()) {
+    Serial.print("Attempting MQTT connection ...");
+    if (mqttClient.connect("Tetris Clock")) {
+      Serial.println("connected");
+      mqttClient.subscribe(listenTopic);
+    } else {
+      Serial.print("failed, rc=");
+      Serial.println(mqttClient.state());
+      Serial.println("Try again in 5 seconds");
+      //Wait 5 seconds before retring
+      delay(5000);
+    }
+  }
 }
